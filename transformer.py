@@ -29,7 +29,7 @@ class PositionalEmbedding(nn.Module):
 
         # Create a tensor to store the positional embeddings
         # Shape: (max_len, d_model)
-        self.positional_embeddings = torch.zeros(max_len, model_embedding_dim)
+        self.pos_embeddings = torch.zeros(max_len, model_embedding_dim)
 
         # Create a tensor for the positions (0, 1, ..., max_len - 1)
         # Shape: (max_len, 1)
@@ -41,24 +41,24 @@ class PositionalEmbedding(nn.Module):
         # Shape: (d_model / 2)
 
         # Apply sin to even indices (2i)
-        self.positional_embeddings[:, 0::2] = torch.sin(position * div_term)
+        self.pos_embeddings[:, 0::2] = torch.sin(position * div_term)
         
         # Apply cos to odd indices (2i + 1)
-        self.positional_embeddings[:, 1::2] = torch.cos(position * div_term)
+        self.pos_embeddings[:, 1::2] = torch.cos(position * div_term)
 
         # Add a batch dimension so it can be added to batch data
         # New shape: (1, max_len, d_model)
-        self.positional_embeddings = self.positional_embeddings.unsqueeze(0)
+        self.pos_embeddings = self.pos_embeddings.unsqueeze(0)
 
-        # Register 'positional_embeddings' as a buffer. This makes it part of the model's
+        # Register 'pos_embeddings' as a buffer. This makes it part of the model's
         # state, but not a parameter that gets updated by the optimizer.
-        self.register_buffer('positional_embeddings', self.positional_embeddings)
+        self.register_buffer('positional_embeddings', self.pos_embeddings)
 
     def forward(self, x):
         # Add the positional encodings to the input
-        # We slice self.positional_embeddings to match the sequence length of x
-        # self.positional_embeddings[:, :x.size(1), :] handles sequences shorter than max_len
-        x = x + self.positional_embeddings[:, :x.size(1), :]
+        # We slice self.pos_embeddings to match the sequence length of x
+        # self.pos_embeddings[:, :x.size(1), :] handles sequences shorter than max_len
+        x = x + self.pos_embeddings[:, :x.size(1), :]
         return x
     
 
@@ -89,7 +89,7 @@ class MultiheadedSelfAttention(nn.Module):
         Operates in parallel across all heads (n_attention_heads dim).
         q, k, v shape: (batch_size, n_attention_heads, sequence_length, head_dim)
         """
-        d_k = q.size()[-1] # head_dim
+        d_k = k.size()[-1] # head_dim
         
         # Scores: (batch, heads, seq_len, head_dim) @ (batch, heads, head_dim, seq_len) -> (batch, heads, seq_len, seq_len)
         scaled_dot_product = torch.matmul(q, k.transpose(-1, -2)) / math.sqrt(d_k)
@@ -132,7 +132,7 @@ class MultiheadedSelfAttention(nn.Module):
         values = values.permute(0, 2, 1, 3)
 
         # Flatten heads: (batch, q_len, n_attention_heads, head_dim) -> (batch, q_len, embedding_dim)
-        values = values.reshape(batch_size, q_len, self.embedding_dim)
+        values = values.contiguous().view(batch_size, q_len, self.embedding_dim)
 
         # Final projection
         # Shape: (batch, q_len, embedding_dim)
@@ -239,7 +239,7 @@ class Transformer(nn.Module):
                  use_cross_attention: bool = True):
         """
         Args:
-            src_vocab_size (int): Size of the source vocabulary.
+            src_vocab_size (int): Size of the source vocabulary for translation tasks etc.
             target_vocab_size (int): Size of the target vocabulary.
             model_embedding_dim (int): Dimension of embeddings (d_model).
             n_encoder_blocks (int): Number of encoder blocks.
@@ -310,6 +310,29 @@ class Transformer(nn.Module):
         output = self.output_layer(decoder_output)
         
         return output
+    
+    @torch.no_grad()
+    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):
+        """
+        idx: (batch, seq_len) tensor of indices in the current context
+        max_new_tokens: int, number of new tokens to generate
+        """
+        for _ in range(max_new_tokens):
+            idx_cond = idx if idx.size(1) <= self.pos_embed.pos_embeddings.size(1) else idx[:, -self.pos_embed.pos_embeddings.size(1):]
+            
+            mask = self.create_target_mask(idx_cond)
+            logits = self.forward(src=None, target=idx_cond, src_mask=None, target_mask=mask)
+            logits = logits[:, -1, :] / temperature
+            
+            if top_k is not None:
+                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+                logits[logits < v[:, [-1]]] = -float('Inf')
+
+            probs = F.softmax(logits, dim=-1)
+            idx_next = torch.multinomial(probs, num_samples=1)
+            idx = torch.cat((idx, idx_next), dim=1)
+            
+        return idx
 
     def create_target_mask(self, target):
         _, target_len = target.shape
@@ -319,3 +342,11 @@ class Transformer(nn.Module):
     def create_padding_mask(self, seq, pad_token_idx=0):
         mask = (seq != pad_token_idx).unsqueeze(1).unsqueeze(2)
         return mask
+    
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            nn.init.xavier_uniform_(module.weight)
+            if module.bias is not None:
+                nn.init.constant_(module.bias, 0)
+        elif isinstance(module, nn.Embedding):
+            nn.init.normal_(module.weight, mean=0, std=0.1)

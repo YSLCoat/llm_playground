@@ -15,7 +15,7 @@ def parse_input_to_configs():
         "-b",
         "--batch_size",
         type=int,
-        default=256,
+        default=1024,
         help="Batch size"
     )
     parser.add_argument(

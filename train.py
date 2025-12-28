@@ -1,3 +1,5 @@
+from datetime import datetime
+
 import torch
 import torch.nn as nn
 from torch.utils.data import random_split
@@ -10,6 +12,7 @@ from transformer import Transformer
 from input_parser import parse_input_to_configs
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+datetime_val = datetime.now()
 
 def main(configs):
     train_dataset, val_dataset = TinyShakespeare.prepare_splits(

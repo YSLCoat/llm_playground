@@ -1,3 +1,5 @@
+from datetime import datetime 
+
 import torch
 import torch.nn as nn
 
@@ -14,7 +16,7 @@ class Trainer():
     def process_batch(self, inputs, targets):
         inputs = inputs.to(self.device)
         targets = targets.to(self.device)
-        model_output = self.model(inputs, targets)
+        model_output = self.model(inputs)
         loss = self.loss_fn(model_output.transpose(1, 2), targets)
         
         self.optimizer.zero_grad()
@@ -35,5 +37,27 @@ class Trainer():
     def train(self):
         for epoch in range(self.configs.epochs):
             self.process_epoch(self.train_loader)
+
+        model_id = generate_model_id()
+        self.save_model_checkpoint(model_id, 0)
+
+    def save_model_checkpoint(self, run_id, epoch):
+        checkpoint = {
+            'epoch': epoch,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'configs': self.configs,
+        }
+        save_path = f"{run_id}_epoch_{epoch}.pt"
+        torch.save(checkpoint, save_path)
+        print(f"Model saved to {save_path}")
+
+        
+
+def generate_model_id(prefix="model"):
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%d_%H-%M-%S")
+    
+    return f"{prefix}_{timestamp}"
 
     

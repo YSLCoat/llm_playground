@@ -38,6 +38,30 @@ def parse_input_to_configs():
         default=200,
         help="Context length of tokens"
     )
+    parser.add_argument(
+        "--embed_dim",
+        type=int,
+        default=256,
+        help="Model embedding dim"
+    )
+    parser.add_argument(
+        "--n_encoder_blocks",
+        type=int,
+        default=0,
+        help="Number of encoder blocks for transformer"
+    )
+    parser.add_argument(
+        "--n_decoder_blocks",
+        type=int,
+        default=6,
+        help="Number of decoder blocks"
+    )
+    parser.add_argument(
+        "--n_attention_heads",
+        type=int,
+        default=8,
+        help="Number of attention heads"
+    )
 
     configs = parser.parse_args()
     return configs

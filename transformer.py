@@ -51,14 +51,14 @@ class PositionalEmbedding(nn.Module):
         self.pos_embeddings = self.pos_embeddings.unsqueeze(0)
 
         # Register 'pos_embeddings' as a buffer. This makes it part of the model's
-        # state, but not a parameter that gets updated by the optimizer.
+        # state, but not a parameter that gets updated by the optimizer. We're using this as we're calculating positional embeddings using a non-learnable method.
         self.register_buffer('positional_embeddings', self.pos_embeddings)
 
     def forward(self, x):
         # Add the positional encodings to the input
         # We slice self.pos_embeddings to match the sequence length of x
         # self.pos_embeddings[:, :x.size(1), :] handles sequences shorter than max_len
-        x = x + self.pos_embeddings[:, :x.size(1), :]
+        x = x + self.positional_embeddings[:, :x.size(1), :]
         return x
     
 
@@ -300,7 +300,15 @@ class Transformer(nn.Module):
             decoder_output, _, _ = block(decoder_output, target_mask, encoder_output, src_mask)
         return decoder_output
 
-    def forward(self, src, target, src_mask, target_mask):
+    def forward(self, src=None, target=None, src_mask=None, target_mask=None):
+        if self.use_cross_attention is False:
+            if target is None and src is not None:
+                target = src
+                src = None
+
+        if target_mask is None and target is not None:
+            target_mask = self.create_target_mask(target)
+
         if self.use_cross_attention:
             encoder_output = self.encode(src, src_mask)
         else:

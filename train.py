@@ -26,8 +26,9 @@ def main(configs):
     model = Transformer(1, train_dataset.tokenizer.vocab_size, configs.embed_dim, configs.n_encoder_blocks, configs.n_decoder_blocks, configs.n_attention_heads, configs.context_len, use_cross_attention=False).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), configs.learning_rate)
     loss_fn = nn.CrossEntropyLoss()
-    trainer = Trainer(configs, model, optimizer, loss_fn, train_loader, device, val_loader)
+    trainer = Trainer(configs, model, optimizer, loss_fn, train_loader, train_dataset, device, val_loader)
     trainer.train()
+    
 
 if __name__=="__main__":
     configs = parse_input_to_configs()

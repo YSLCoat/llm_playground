@@ -4,10 +4,11 @@ import torch
 import torch.nn as nn
 
 class Trainer():
-    def __init__(self, configs, model: nn.Module, optimizer: torch.optim.Optimizer, loss_fn, train_loader, device, val_loader=None):
+    def __init__(self, configs, model: nn.Module, optimizer: torch.optim.Optimizer, loss_fn, train_loader, train_dataset, device, val_loader=None):
         self.configs = configs
         self.model = model
         self.train_loader = train_loader
+        self.train_dataset = train_dataset
         self.val_loader = val_loader
         self.loss_fn = loss_fn
         self.optimizer = optimizer
@@ -47,6 +48,7 @@ class Trainer():
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'configs': self.configs,
+            'tokenizer': self.train_dataset.tokenizer
         }
         save_path = f"{run_id}_epoch_{epoch}.pt"
         torch.save(checkpoint, save_path)

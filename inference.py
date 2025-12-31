@@ -14,7 +14,7 @@ def main(inference_configs):
     model.load_state_dict(loaded_configs['model_state_dict'])
 
     context = torch.zeros((1, 1), dtype=torch.long, device=device)
-    res = ''.join(loaded_configs['tokenizer'].decode(model.generate(context, max_new_tokens=500)[0].tolist()))
+    res = ''.join(loaded_configs['tokenizer'].decode(model.generate(context, max_new_tokens=1000)[0].tolist()))
     print(res)
 
 

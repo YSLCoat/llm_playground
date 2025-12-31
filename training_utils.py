@@ -23,7 +23,7 @@ class Trainer():
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        batch_loss = loss.item() / len(inputs)
+        batch_loss = loss.item() #/ len(inputs)
         print(f"Batch Loss: {batch_loss}")
         return batch_loss
 
@@ -32,7 +32,7 @@ class Trainer():
         for i, (inputs, targets) in enumerate(dataloader):
             epoch_loss += self.process_batch(inputs, targets)
 
-        avg_epoch_loss = epoch_loss / len(dataloader)
+        avg_epoch_loss = epoch_loss #/ len(dataloader)
         print(f"Epoch Loss: {avg_epoch_loss}")
 
     def train(self):
